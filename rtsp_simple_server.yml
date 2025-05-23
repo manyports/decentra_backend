@@ -1,0 +1,19 @@
+
+paths:
+  stream:
+    source: publisher
+
+protocols:
+  rtsp: yes
+  rtmp: yes
+  hls: no
+  webrtc: no
+
+rtsp:
+  port: 8554
+
+rtmp:
+  port: 1936
+
+api:
+  address: 127.0.0.1:9997 

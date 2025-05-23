@@ -2,6 +2,7 @@ const NodeMediaServer = require('node-media-server');
 const http = require('http');
 const { spawn } = require('child_process');
 const url = require('url');
+const RtmpToRtspConverter = require('./rtmp_to_rtsp');
 
 const config = {
   rtmp: {
@@ -25,6 +26,19 @@ console.log('RTMP server running at rtmp://localhost:1935');
 console.log('HTTP server running at http://localhost:8000');
 
 const activeStreams = new Map();
+const converter = new RtmpToRtspConverter();
+
+converter.on('log', (data) => {
+  console.log(`Conversion ${data.id} log: ${data.log}`);
+});
+
+converter.on('ended', (data) => {
+  console.log(`Conversion ${data.id} ended with status: ${data.status}`);
+});
+
+converter.on('stopped', (data) => {
+  console.log(`Conversion ${data.id} was stopped`);
+});
 
 const apiServer = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -38,8 +52,9 @@ const apiServer = http.createServer((req, res) => {
   }
   
   const parsedUrl = url.parse(req.url, true);
+  const path = parsedUrl.pathname;
   
-  if (req.method === 'GET' && parsedUrl.pathname === '/streams') {
+  if (req.method === 'GET' && path === '/streams') {
     const streams = Array.from(activeStreams.entries()).map(([id, stream]) => ({
       id,
       path: stream.path,
@@ -51,7 +66,7 @@ const apiServer = http.createServer((req, res) => {
     return;
   }
   
-  if (req.method === 'POST' && parsedUrl.pathname === '/streams') {
+  if (req.method === 'POST' && path === '/streams') {
     let body = '';
     req.on('data', chunk => {
       body += chunk.toString();
@@ -108,8 +123,8 @@ const apiServer = http.createServer((req, res) => {
     return;
   }
   
-  if (req.method === 'DELETE' && parsedUrl.pathname.startsWith('/streams/')) {
-    const streamId = parsedUrl.pathname.split('/').pop();
+  if (req.method === 'DELETE' && path.startsWith('/streams/')) {
+    const streamId = path.split('/').pop();
     
     if (activeStreams.has(streamId)) {
       const stream = activeStreams.get(streamId);
@@ -126,6 +141,95 @@ const apiServer = http.createServer((req, res) => {
     return;
   }
   
+  if (req.method === 'GET' && path === '/conversions') {
+    const conversions = converter.getConversions();
+    
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(conversions));
+    return;
+  }
+  
+  if (req.method === 'POST' && path === '/conversions') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    
+    req.on('end', () => {
+      try {
+        const data = body ? JSON.parse(body) : {};
+        
+        if (!data.rtmpUrl) {
+          throw new Error('rtmpUrl is required');
+        }
+        
+        const rtspPort = data.rtspPort || 8554;
+        const streamPath = data.streamPath || `stream_${Date.now().toString(36)}`;
+        
+        const conversion = converter.startConversion(
+          data.rtmpUrl,
+          rtspPort,
+          streamPath
+        );
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(conversion));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    
+    return;
+  }
+  
+  if (req.method === 'GET' && path.startsWith('/conversions/')) {
+    const parts = path.split('/');
+    if (parts.length === 3) {
+      const conversionId = parts[2];
+      const conversion = converter.getConversion(conversionId);
+      
+      if (conversion) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(conversion));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Conversion not found' }));
+      }
+    } else if (parts.length === 4 && parts[3] === 'logs') {
+      const conversionId = parts[2];
+      const logs = converter.getLogs(conversionId);
+      
+      if (logs) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(logs));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Conversion not found' }));
+      }
+    } else {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid path' }));
+    }
+    
+    return;
+  }
+  
+  if (req.method === 'DELETE' && path.startsWith('/conversions/')) {
+    const conversionId = path.split('/').pop();
+    const success = converter.stopConversion(conversionId);
+    
+    if (success) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Conversion stopped successfully' }));
+    } else {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Conversion not found' }));
+    }
+    
+    return;
+  }
+  
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not found' }));
 });
@@ -137,6 +241,11 @@ apiServer.listen(API_PORT, () => {
   console.log('  GET    /streams - List all streams');
   console.log('  POST   /streams - Create a new test stream');
   console.log('  DELETE /streams/:id - Stop a test stream');
+  console.log('  GET    /conversions - List all RTMP to RTSP conversions');
+  console.log('  POST   /conversions - Start a new RTMP to RTSP conversion');
+  console.log('  GET    /conversions/:id - Get a specific conversion');
+  console.log('  GET    /conversions/:id/logs - Get logs for a specific conversion');
+  console.log('  DELETE /conversions/:id - Stop a conversion');
 });
 
 process.on('SIGINT', () => {
@@ -146,6 +255,9 @@ process.on('SIGINT', () => {
     console.log(`Stopping stream ${id}`);
     stream.process.kill();
   }
+
+  console.log('Stopping all conversions...');
+  converter.stopAll();
 
   nms.stop();
   apiServer.close();

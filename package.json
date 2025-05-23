@@ -1,13 +1,18 @@
 {
   "name": "decentra-rtmp-server",
   "version": "1.0.0",
-  "description": "RTMP server for Decentra",
+  "description": "RTMP server for Decentra with RTSP conversion",
   "main": "start.js",
   "dependencies": {
     "node-media-server": "^2.6.2"
   },
   "scripts": {
     "start": "node start.js",
-    "test-stream": "sh simple_rtmp_server.sh live/test"
+    "test-stream": "sh simple_rtmp_server.sh live/test",
+    "rtsp-server": "sh start_rtsp_server.sh",
+    "test-conversion": "sh test_rtmp_to_rtsp.sh",
+    "rtmp-to-rtsp": "sh rtmp_rtsp_proxy.sh",
+    "mediamtx": "cd mediamtx && ./start_mediamtx.sh",
+    "mediamtx-test": "cd mediamtx && ./test_conversion.sh"
   }
 } 
