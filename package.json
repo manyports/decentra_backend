@@ -1,0 +1,13 @@
+{
+  "name": "decentra-rtmp-server",
+  "version": "1.0.0",
+  "description": "RTMP server for Decentra",
+  "main": "start.js",
+  "dependencies": {
+    "node-media-server": "^2.6.2"
+  },
+  "scripts": {
+    "start": "node start.js",
+    "test-stream": "sh simple_rtmp_server.sh live/test"
+  }
+} 
