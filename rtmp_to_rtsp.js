@@ -1,10 +1,117 @@
 const { spawn } = require('child_process');
 const { EventEmitter } = require('events');
+const http = require('http');
+const net = require('net');
+const path = require('path');
+const fs = require('fs');
 
 class RtmpToRtspConverter extends EventEmitter {
   constructor() {
     super();
     this.conversions = new Map();
+    this.mediaMtxProcess = null;
+  }
+
+  /**
+   * Check if MediaMTX RTSP server is running
+   * @param {number} rtspPort - The RTSP port to check (default 8554)
+   * @returns {Promise<boolean>} - Whether the MediaMTX RTSP server is running
+   */
+  checkMediaMtxRunning(rtspPort = 8554) {
+    return new Promise((resolve) => {
+      const client = new net.Socket();
+      const timeout = 1000; 
+      
+      client.setTimeout(timeout);
+      
+      client.on('connect', () => {
+        client.destroy();
+        resolve(true);
+      });
+      
+      client.on('timeout', () => {
+        client.destroy();
+        resolve(false);
+      });
+      
+      client.on('error', () => {
+        client.destroy();
+        resolve(false);
+      });
+      
+      client.connect(rtspPort, 'localhost');
+    });
+  }
+
+  /**
+   * Start MediaMTX server
+   * @returns {Promise<boolean>} - Whether MediaMTX was started successfully
+   */
+  startMediaMtx() {
+    return new Promise((resolve) => {
+      try {
+        const mediaMtxDir = path.join(process.cwd(), 'mediamtx');
+        
+        if (!fs.existsSync(mediaMtxDir)) {
+          console.error('MediaMTX directory not found:', mediaMtxDir);
+          return resolve(false);
+        }
+        
+        let executable = 'mediamtx';
+        if (process.platform === 'win32') {
+          executable = 'mediamtx.exe';
+        }
+        
+        const mediaMtxPath = path.join(mediaMtxDir, executable);
+        
+        if (!fs.existsSync(mediaMtxPath)) {
+          console.error('MediaMTX executable not found:', mediaMtxPath);
+          return resolve(false);
+        }
+        
+        console.log('Starting MediaMTX from', mediaMtxPath);
+        
+        this.mediaMtxProcess = spawn(mediaMtxPath, [], {
+          cwd: mediaMtxDir,
+          detached: true,
+          stdio: 'ignore'
+        });
+        
+        this.mediaMtxProcess.unref();
+        
+        setTimeout(async () => {
+          const running = await this.checkMediaMtxRunning();
+          resolve(running);
+        }, 2000);
+        
+      } catch (error) {
+        console.error('Error starting MediaMTX:', error);
+        resolve(false);
+      }
+    });
+  }
+
+  /**
+   * Ensure MediaMTX is running, start it if needed
+   * @returns {Promise<boolean>} - Whether MediaMTX is running
+   */
+  async ensureMediaMtxRunning() {
+    let isRunning = await this.checkMediaMtxRunning();
+    
+    if (!isRunning) {
+      console.log('MediaMTX not running, attempting to start it...');
+      isRunning = await this.startMediaMtx();
+      
+      if (isRunning) {
+        console.log('MediaMTX started successfully');
+      } else {
+        console.error('Failed to start MediaMTX');
+      }
+    } else {
+      console.log('MediaMTX is already running');
+    }
+    
+    return isRunning;
   }
 
   /**
@@ -14,7 +121,13 @@ class RtmpToRtspConverter extends EventEmitter {
    * @param {string} streamPath - The RTSP stream path
    * @returns {Object} - Conversion details
    */
-  startConversion(rtmpUrl, rtspPort = 8554, streamPath = 'stream') {
+  async startConversion(rtmpUrl, rtspPort = 8554, streamPath = 'stream') {
+    const isMediaMtxRunning = await this.ensureMediaMtxRunning();
+    
+    if (!isMediaMtxRunning) {
+      throw new Error('Could not start MediaMTX RTSP server automatically. Please check if MediaMTX is installed correctly.');
+    }
+    
     const id = Date.now().toString(36);
     const rtspUrl = `rtsp://localhost:${rtspPort}/${streamPath}`;
     
@@ -148,6 +261,15 @@ class RtmpToRtspConverter extends EventEmitter {
         conversion.endTime = new Date();
         this.emit('stopped', { id });
       }
+    }
+    
+    if (this.mediaMtxProcess) {
+      try {
+        process.kill(-this.mediaMtxProcess.pid);
+      } catch (error) {
+        console.error('Error stopping MediaMTX:', error);
+      }
+      this.mediaMtxProcess = null;
     }
   }
 }

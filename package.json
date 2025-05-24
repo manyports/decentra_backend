@@ -7,7 +7,7 @@
     "node-media-server": "^2.6.2"
   },
   "scripts": {
-    "start": "node start.js",
+    "start": "sh start.sh",
     "test-stream": "sh simple_rtmp_server.sh live/test",
     "rtsp-server": "sh start_rtsp_server.sh",
     "test-conversion": "sh test_rtmp_to_rtsp.sh",

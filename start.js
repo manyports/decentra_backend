@@ -166,14 +166,19 @@ const apiServer = http.createServer((req, res) => {
         const rtspPort = data.rtspPort || 8554;
         const streamPath = data.streamPath || `stream_${Date.now().toString(36)}`;
         
-        const conversion = converter.startConversion(
+        converter.startConversion(
           data.rtmpUrl,
           rtspPort,
           streamPath
-        );
-        
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(conversion));
+        )
+        .then(conversion => {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(conversion));
+        })
+        .catch(error => {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: error.message }));
+        });
       } catch (error) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: error.message }));
