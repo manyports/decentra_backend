@@ -7,7 +7,7 @@
 
 ## 🚀 Quick Start Guide (5 Minutes)
 
-Want to get up and running as quickly as possible? Follow these steps:
+Want to get up and running as quickly as possible? Make sure you have FFMPEG, then follow these steps:
 
 1. **Clone the repository**
    ```bash
@@ -20,32 +20,13 @@ Want to get up and running as quickly as possible? Follow these steps:
    npm install
    ```
 
-3. **Start MediaMTX server** (in terminal 1)
+3. **Start server** 
    ```bash
-   cd mediamtx
-   ./mediamtx mediamtx.yml
+   npm start
    ```
-   You should see: `INF MediaMTX v1.5.0` and `INF [RTMP] listener opened on :1936`
+   You should see: `INF MediaMTX v1.5.0` and `INF [RTMP] listener opened on :1936`,  `Starting test RTMP stream with name: `
 
-4. **Start test RTMP stream** (in terminal 2)
-   ```bash
-   # Open a new terminal window
-   cd mediamtx
-   ./test_conversion.sh
-   ```
-   You should see: `Starting test RTMP stream with name: test`
-
-5. **View the RTSP stream** (in terminal 3)
-   ```bash
-   # Open a new terminal window
-   ffplay -rtsp_transport tcp rtsp://localhost:8554/test
-   ```
-   You should see a test pattern video playing!
-
-That's it! You now have:
-- MediaMTX server running and listening on port 1936 (RTMP) and port 8554 (RTSP)
-- A test RTMP stream being published
-- The stream being converted and accessible via RTSP
+That's it! You now have your backend server running on your localhost
 
 ## 📖 Complete Setup Guide
 
@@ -528,7 +509,7 @@ For production use, consider:
 
 ## 🚀 Краткое руководство по запуску (5 минут)
 
-Хотите быстро начать работу? Выполните следующие шаги:
+Хотите быстро начать работу? Удостоверьтесь, что у вас есть FFMPEG, а затем выполните следующие шаги:
 
 1. **Клонируйте репозиторий**
    ```bash
@@ -541,32 +522,13 @@ For production use, consider:
    npm install
    ```
 
-3. **Запустите сервер MediaMTX** (в терминале 1)
+3. **Запустите сервер** 
    ```bash
-   cd mediamtx
-   ./mediamtx mediamtx.yml
+   npm start
    ```
-   Вы должны увидеть: `INF MediaMTX v1.5.0` и `INF [RTMP] listener opened on :1936`
+   Вы должны увидеть: `INF MediaMTX v1.5.0` и `INF [RTMP] listener opened on :1936`, `Starting test RTMP stream with name: `
 
-4. **Запустите тестовый RTMP поток** (в терминале 2)
-   ```bash
-   # Откройте новое окно терминала
-   cd mediamtx
-   ./test_conversion.sh
-   ```
-   Вы должны увидеть: `Starting test RTMP stream with name: test`
-
-5. **Просмотрите RTSP поток** (в терминале 3)
-   ```bash
-   # Откройте новое окно терминала
-   ffplay -rtsp_transport tcp rtsp://localhost:8554/test
-   ```
-   Вы должны увидеть тестовое видео!
-
-Готово! Теперь у вас есть:
-- Сервер MediaMTX, работающий на порту 1936 (RTMP) и порту 8554 (RTSP)
-- Тестовый RTMP поток
-- Преобразованный поток, доступный через RTSP
+Готово! Теперь у вас есть бэкенд-сервер, который готов работать с фронтом!
 
 ## 📖 Полное руководство по настройке
 
